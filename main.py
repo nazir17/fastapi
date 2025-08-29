@@ -1,83 +1,46 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, EmailStr
-from typing import List, Optional
-from datetime import datetime
+from fastapi import FastAPI
+import file_storage as fstore
+import memory_storage as mem
 
 app = FastAPI()
 
-class UserBase(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
-    password: str
-    status: str
-
-class User(UserBase):
-    id: int
-    created_at: datetime
-    updated_at: datetime
-
-users: List[User] = []
-next_id = 1
-
-@app.get("/api/users", response_model=List[User])
+@app.get("/api/users")
 def get_users():
-    return users
+    return mem.get_users()
 
-@app.post("/api/users", response_model=User)
-def create_user(user: UserBase):
-    global next_id
+@app.post("/api/users")
+def create_user(user: mem.UserBase):
+    return mem.create_user(user)
 
-    if any(u.email == user.email for u in users):
-        raise HTTPException(status_code=400, detail="Email already exists")
-
-    new_user = User(
-        id=next_id,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        email=user.email,
-        password=user.password,
-        status=user.status,
-        created_at=datetime.now(),
-        updated_at=datetime.now()
-    )
-
-    users.append(new_user)
-    next_id += 1
-    return new_user
-
-@app.get("/api/users/{user_id}", response_model=User)
+@app.get("/api/users/{user_id}")
 def get_user(user_id: int):
-    for u in users:
-        if u.id == user_id:
-            return u
-    raise HTTPException(status_code=404, detail="User not found")
+    return mem.get_user(user_id)
 
-@app.put("/api/users/{user_id}", response_model=User)
-def update_user(user_id: int, updated_data: UserBase):
-    for idx, u in enumerate(users):
-        if u.id == user_id:
-            if any(u2.email == updated_data.email and u2.id != user_id for u2 in users):
-                raise HTTPException(status_code=400, detail="Email already exists")
-
-            updated_user = User(
-                id=u.id,
-                first_name=updated_data.first_name,
-                last_name=updated_data.last_name,
-                email=updated_data.email,
-                password=updated_data.password,
-                status=updated_data.status,
-                created_at=u.created_at,
-                updated_at=datetime.now()
-            )
-            users[idx] = updated_user
-            return updated_user
-    raise HTTPException(status_code=404, detail="User not found")
+@app.put("/api/users/{user_id}")
+def update_user(user_id: int, user: mem.UserBase):
+    return mem.update_user(user_id, user)
 
 @app.delete("/api/users/{user_id}")
 def delete_user(user_id: int):
-    for idx, u in enumerate(users):
-        if u.id == user_id:
-            users.pop(idx)
-            return {"message": "User deleted successfully"}
-    raise HTTPException(status_code=404, detail="User not found")
+    return mem.delete_user(user_id)
+
+# endpoints of storage
+@app.get("/api/users-files")
+def get_users_file():
+    return fstore.get_users_file()
+
+@app.post("/api/users-files")
+def create_user_file(user: fstore.UserBase):
+    return fstore.create_user_file(user)
+
+@app.get("/api/users-files/{user_id}")
+def get_user_file(user_id: int):
+    return fstore.get_user_file(user_id)
+
+@app.put("/api/users-files/{user_id}")
+def update_user_file(user_id: int, user: fstore.UserBase):
+    return fstore.update_user_file(user_id, user)
+
+@app.delete("/api/users-files/{user_id}")
+def delete_user_file(user_id: int):
+    return fstore.delete_user_file(user_id)
