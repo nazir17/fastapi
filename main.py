@@ -6,7 +6,7 @@ from models.user_db import Base
 from schemas.user_schema import UserCreate, UserUpdate, UserResponse
 from services import user_db_service
 
-DATABASE_URL = "mysql+pymysql://root:It%40chi%40404@localhost:3306/mydb"
+DATABASE_URL = "mysql+pymysql://root:your_password@localhost:3306/mydb"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
