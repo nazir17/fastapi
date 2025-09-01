@@ -5,8 +5,9 @@ from sqlalchemy.orm import sessionmaker, Session
 from models.user_db import Base
 from schemas.user_schema import UserCreate, UserUpdate, UserResponse
 from services import user_db_service
+from config import settings
 
-DATABASE_URL = "mysql+pymysql://root:your_password@localhost:3306/mydb"
+DATABASE_URL = f"mysql+pymysql://{settings.db_user}:{settings.db_password}@{settings.db_host}:{settings.db_port}/{settings.db_database}"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
