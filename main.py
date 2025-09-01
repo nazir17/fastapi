@@ -1,9 +1,8 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-
 from models.user_db import Base
-from schemas.user_schema import UserCreate, UserUpdate, UserResponse
+from schemas.user_schema import UserCreate, UserUpdate, UserResponse, UserSignup, UserLogin
 from services import user_db_service
 from config import settings
 
@@ -27,6 +26,14 @@ def get_db():
 @app.post("/api/users-db/", response_model=UserResponse)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     return user_db_service.create_user(db, user)
+
+@app.post("/api/users/signup/", response_model=UserResponse)
+def signup_user(user: UserSignup, db: Session = Depends(get_db)):
+    return user_db_service.signup_user(db, user)
+
+@app.post("/api/users/login/")
+def login_user(user: UserLogin, db: Session = Depends(get_db)):
+    return user_db_service.login_user(db, user)
 
 @app.get("/api/users-db/", response_model=list[UserResponse])
 def get_users(db: Session = Depends(get_db)):
