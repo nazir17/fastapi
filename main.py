@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from models import users, reset_tokens
-from schemas import UserCreate, UserLogin, ForgotPasswordRequest, ResetPasswordRequest
+from schemas import UserCreate, UserLogin, ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest
 from passlib.context import CryptContext
 from db import database, metadata, engine
 from datetime import datetime, timedelta
@@ -19,7 +19,7 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
-@app.post("/api/users/signup/")
+@app.post("/api/auth/signup/")
 async def signup_user(user: UserCreate):
     query = users.select().where(users.c.email == user.email)
     existing_user = await database.fetch_one(query)
@@ -31,7 +31,7 @@ async def signup_user(user: UserCreate):
     await database.execute(query)
     return {"message": "User registered successfully"}
 
-@app.post("/api/users/login/")
+@app.post("/api/auth/login/")
 async def login_user(user: UserLogin):
     query = users.select().where(users.c.email == user.email)
     existing_user = await database.fetch_one(query)
@@ -43,7 +43,7 @@ async def login_user(user: UserLogin):
 
     return {"message": "Login Successful"}
 
-@app.post("/api/users/forgot-password/")
+@app.post("/api/auth/forgot-password/")
 async def forgot_password(request: ForgotPasswordRequest):
     query = users.select().where(users.c.email == request.email)
     user = await database.fetch_one(query)
@@ -64,7 +64,7 @@ async def forgot_password(request: ForgotPasswordRequest):
 
     return {"message": "Password reset link has been sent to your email"}
 
-@app.post("/api/users/reset-password/")
+@app.post("/api/auth/reset-password/")
 async def reset_password(request: ResetPasswordRequest):
     query = reset_tokens.select().where(reset_tokens.c.token == request.token)
     token_data = await database.fetch_one(query)
@@ -84,3 +84,23 @@ async def reset_password(request: ResetPasswordRequest):
     await database.execute(delete_query)
 
     return {"message": "Password reset successful"}
+
+@app.post("/api/users/change-password/")
+async def change_password(request: ChangePasswordRequest):
+    query = users.select().where(users.c.email == request.email)
+    existing_user = await database.fetch_one(query)
+
+    if not existing_user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    if not pwd_context.verify(request.current_password, existing_user["password"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    if request.new_password != request.confirm_password:
+        raise HTTPException(status_code=400, detail="New password and confirm password do not match")
+
+    hashed_password = pwd_context.hash(request.new_password)
+    update_query = users.update().where(users.c.id == existing_user["id"]).values(password=hashed_password)
+    await database.execute(update_query)
+
+    return {"message": "Password changed successfully"}
