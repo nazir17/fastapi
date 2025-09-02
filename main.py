@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from models import users, reset_tokens
-from schemas import UserCreate, UserLogin, ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest
+from schemas import UserCreate, UserLogin, ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest, UserOut, ChangeStatus
 from passlib.context import CryptContext
 from db import database, metadata, engine
 from datetime import datetime, timedelta
@@ -19,17 +19,22 @@ async def startup():
 async def shutdown():
     await database.disconnect()
 
-@app.post("/api/auth/signup/")
-async def signup_user(user: UserCreate):
+@app.post("/api/auth/signup/", response_model=UserOut)
+async def signup(user: UserCreate):
     query = users.select().where(users.c.email == user.email)
     existing_user = await database.fetch_one(query)
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already exists")
+        raise HTTPException(status_code=400, detail="Email already registered")
 
     hashed_password = pwd_context.hash(user.password)
-    query = users.insert().values(email=user.email, password=hashed_password)
-    await database.execute(query)
-    return {"message": "User registered successfully"}
+    query = users.insert().values(
+        email=user.email,
+        password=hashed_password,
+        role="user",
+        status="active"
+    )
+    user_id = await database.execute(query)
+    return {"id": user_id, "email": user.email, "role": "user", "status": "active" }
 
 @app.post("/api/auth/login/")
 async def login_user(user: UserLogin):
@@ -40,6 +45,9 @@ async def login_user(user: UserLogin):
 
     if not pwd_context.verify(user.password, existing_user["password"]):
         raise HTTPException(status_code=400, detail="Invalid password")
+    
+    if existing_user.status != "active":
+        raise HTTPException(status_code=403, detail="User is inactive. Contact admin.")
 
     return {"message": "Login Successful"}
 
@@ -92,6 +100,9 @@ async def change_password(request: ChangePasswordRequest):
 
     if not existing_user:
         raise HTTPException(status_code=400, detail="User not found")
+    
+    if existing_user.status != "active":
+        raise HTTPException(status_code=403, detail="Inactive users cannot change password")
 
     if not pwd_context.verify(request.current_password, existing_user["password"]):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
@@ -104,3 +115,18 @@ async def change_password(request: ChangePasswordRequest):
     await database.execute(update_query)
 
     return {"message": "Password changed successfully"}
+
+@app.get("/api/admin/users", response_model=list[UserOut])
+async def get_users():
+    query = users.select()
+    existing_users = await database.fetch_all(query)
+    return existing_users
+
+@app.put("/api/admin/change-status")
+async def change_status(data: ChangeStatus):
+    query = users.update().where(users.c.email == data.email).values(status=data.status)
+    result = await database.execute(query)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": f"User {data.email} status updated to {data.status}"}

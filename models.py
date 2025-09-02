@@ -4,9 +4,11 @@ from db import metadata
 users = Table(
     "users",
     metadata,
-    Column("id", Integer, primary_key=True),
-    Column("email", String(50), unique=True, nullable=False, index=True),
-    Column("password", String(255))
+    Column("id", Integer, primary_key=True, index=True),
+    Column("email", String(50), unique=True, nullable=False),
+    Column("password", String(255), nullable=False),
+    Column("role", String(50), nullable=False, default="user"),
+    Column("status", String(50), nullable=False, default="active")
 )
 
 reset_tokens = Table(

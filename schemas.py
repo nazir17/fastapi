@@ -20,3 +20,16 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
     confirm_password: str
+
+class UserOut(BaseModel):
+    id: int
+    email: EmailStr
+    role: str
+    status: str
+
+    class Config:
+        orm_mode = True
+
+class ChangeStatus(BaseModel):
+    email: EmailStr
+    status: str
